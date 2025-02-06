@@ -12,7 +12,9 @@ class TestCharacter(CharacterEntity):
 
     def do(self, wrld):
         # Your code here
-        pass
+        (dx, dy) = self.next_move(wrld)
+        print("Goal Found")
+        self.move(dx, dy)
     
     # Find movement difficulty of terrain given in grid form
     def MapCheck(self, wrld:World):
@@ -73,24 +75,31 @@ class TestCharacter(CharacterEntity):
 
         frontier = [start]
         explored = []
-        came_from = []
+        came_from = {start: None}
         g_count = {start: 0}
-        f_count = {start: heuristic(self.x, self.y, Exit_x, Exit_y)}
+        f_count = {start: self.heuristic(self.x, self.y, Exit_x, Exit_y)}
 
         while frontier:
             curr = min(frontier, key=lambda x: f_count[x])
 
-            if curr == goal:
-                pass ## TODO ADD PATH RECONSTRUCTION
+            if curr == (Exit_x, Exit_y):
+                print("Goal Found")
+                traceBack = curr
+                while came_from[traceBack] != start:
+                    if traceBack is None or traceBack not in came_from:
+                        print("No valid path to start")
+                        return None
+                    traceBack = came_from[traceBack]
+                return (traceBack[0], traceBack[1])
             
             frontier.remove(curr)
             explored.append(curr)
 
-            for neighbor in neighbors(current):
+            for neighbor in self.neighbors(wrld, curr[0], curr[1]):
                 if neighbor in explored:
                     continue
 
-                t_g_count = g_count[curr] + heuristic(curr[0], curr[1], neighbor[0], neighbor[1])
+                t_g_count = g_count[curr] + self.heuristic(curr[0], curr[1], neighbor[0], neighbor[1])
 
                 if neighbor not in frontier:
                     frontier.append(neighbor)
@@ -99,16 +108,9 @@ class TestCharacter(CharacterEntity):
 
                 came_from[neighbor] = curr
                 g_count[neighbor] = t_g_count
-                f_count[neighbor] = g_count[neighbor] + heuristic(neighbor[0], neighbor[1], Exit_x, Exit_y)
-
-                
-
-
-
-
-
-                
-    
+                f_count[neighbor] = g_count[neighbor] + self.heuristic(neighbor[0], neighbor[1], Exit_x, Exit_y)
+        
+        #return (1, 1)
 
     # Move this to a separate file later, base code from: https://www.redblobgames.com/pathfinding/a-star/introduction.html
     def A_Star(self, wrld:World):
