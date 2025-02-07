@@ -2,10 +2,11 @@
 from asyncio import PriorityQueue
 import sys
 
+from sensed_world import SensedWorld
 from world import World
 sys.path.insert(0, '../bomberman')
 # Import necessary stuff
-from entity import CharacterEntity
+from entity import CharacterEntity, MonsterEntity
 from colorama import Fore, Back
 
 class TestCharacter(CharacterEntity):
@@ -15,6 +16,22 @@ class TestCharacter(CharacterEntity):
         # put AI-behavior code HERE:
         (dx, dy) = self.next_move(wrld) # A-Star finds next move
         self.move(dx - self.x, dy - self.y)
+
+    def senseWorld(self, wrld:World):
+        s_world = SensedWorld.from_world(wrld)
+        self.W_width = s_world.width()
+        self.W_height = s_world.height()
+        self.W_exit = s_world.exitcell
+        self.monsters = list(s_world.monsters.values())
+        monster:MonsterEntity = self.monsters.pop()[0]
+        monsterPoses = (monster.x, monster.y) # change this to lambda of monster poses to get list of monster poses
+        print("Width: ", self.W_width, "\nHeight: ", self.W_height, "\nExit: ", self.W_exit, "Monster Pos: ", monsterPoses)
+
+        # do some sensing for heuristics?
+        for y in range(self.W_height):
+            for x in range(self.W_width):
+                # if(wrld.exitcell())
+                pass
     
     # Find movement difficulty of terrain given in grid form
     def MapCheck(self, wrld:World):
