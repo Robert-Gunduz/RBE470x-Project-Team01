@@ -14,6 +14,8 @@ class TestCharacter(CharacterEntity):
     # Runs when it is this Character's turn 
     def do(self, wrld):
         # put AI-behavior code HERE:
+        self.senseWorld(wrld)
+        print("monsterNear: ", self.monsterNear(wrld))
         (dx, dy) = self.next_move(wrld) # A-Star finds next move
         self.move(dx - self.x, dy - self.y)
 
@@ -32,31 +34,17 @@ class TestCharacter(CharacterEntity):
             for x in range(self.W_width):
                 # if(wrld.exitcell())
                 pass
-    
-    # Find movement difficulty of terrain given in grid form
-    def MapCheck(self, wrld:World):
-        W_width = wrld.width()
-        W_height = wrld.height()
-        Exit_x = 0
-        Exit_y = 0
-        Hx = [W_width][W_height]
-        # Find the Exit Position on the Grid
-        for i in range(W_width):
-            for j in range(W_height):
-                if wrld.exit_at(i, j):
-                    Exit_x = i
-                    Exit_y = j
-                    break
-        # Calculate Movement difficulty (Wall Presence + Manhattan dist)
-        for i in range(W_width):
-            for j in range(W_width):
-                # Manhattan Distance
-                Hx[i][j] = abs(i - Exit_x) + abs(j - Exit_y)
-                # Check for Wall
-                if wrld.wall_at(i, j):
-                    Hx[i][j] += 50
-        return Hx
 
+    def monsterNear(self, wrld):
+        current_pos = (self.x, self.y)
+        s_world = SensedWorld.from_world(wrld)
+        monsters = list(s_world.monsters.values())
+        for monster in monsters:
+            if (self.heuristic(current_pos[0], current_pos[1], monster.x, monster.y) <= 1):
+                return True
+        return False
+
+   
     # Function to check for valid neighboring Cells, returns list of coordinates (modified from 'look_for_empty_cell')
     def neighbors(self, wrld, x, y):
         # List of empty cells
@@ -149,3 +137,29 @@ class TestCharacter(CharacterEntity):
                 f_count[neighbor] = g_count[neighbor] + self.heuristic(neighbor[0], neighbor[1], goal[0], goal[1])
         
         return None # Return Nonetype if no valid path has been found to the End Position
+    
+    ## Functions Unused in current version, for possible future use:
+     
+    # Find movement difficulty of terrain given in grid form
+    def MapCheck(self, wrld:World):
+        W_width = wrld.width()
+        W_height = wrld.height()
+        Exit_x = 0
+        Exit_y = 0
+        Hx = [W_width][W_height]
+        # Find the Exit Position on the Grid
+        for i in range(W_width):
+            for j in range(W_height):
+                if wrld.exit_at(i, j):
+                    Exit_x = i
+                    Exit_y = j
+                    break
+        # Calculate Movement difficulty (Wall Presence + Manhattan dist)
+        for i in range(W_width):
+            for j in range(W_width):
+                # Manhattan Distance
+                Hx[i][j] = abs(i - Exit_x) + abs(j - Exit_y)
+                # Check for Wall
+                if wrld.wall_at(i, j):
+                    Hx[i][j] += 50
+        return Hx
