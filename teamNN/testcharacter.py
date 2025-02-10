@@ -14,10 +14,29 @@ class TestCharacter(CharacterEntity):
     # Runs when it is this Character's turn 
     def do(self, wrld):
         # put AI-behavior code HERE:
+        state = self.stateShift(wrld) # Check for State change
         self.senseWorld(wrld)
-        print("monsterNear: ", self.monsterNear(wrld))
-        (dx, dy) = self.next_move(wrld) # A-Star finds next move
-        self.move(dx - self.x, dy - self.y)
+        print("monsterNear: ", self.monsterNear(wrld, 2))
+        print("State: ", state)
+        match state:
+            case 0: # Move using A star as normal
+                (dx, dy) = self.next_move(wrld) # A-Star finds next move
+                self.move(dx - self.x, dy - self.y)
+            case 1: # Monster is nearby, move to avoid monster
+                # TODO: Add behavior to run away from monster
+                pass
+            case _: # default, state unaccounted for
+                print("WARNING: state not accounted for, please add proper behavior")
+                pass
+                
+
+    # Function for State change conditions
+    def stateShift(self, wrld):
+        state = 0 # default state (currently: A-Star)
+        if(self.monsterNear(wrld, 2)):
+            state = 1 # Avoid monster state
+        return state
+            
 
     def senseWorld(self, wrld:World):
         s_world = SensedWorld.from_world(wrld)
@@ -35,14 +54,23 @@ class TestCharacter(CharacterEntity):
                 # if(wrld.exitcell())
                 pass
 
-    def monsterNear(self, wrld):
+    # Function to determine if a monster is nearby, returns true if monster is within threshold
+    def monsterNear(self, wrld, threshold):
         current_pos = (self.x, self.y)
         s_world = SensedWorld.from_world(wrld)
         monsters = list(s_world.monsters.values())
+        monsterPoses = []
+
+        # generate list of Monster coordinates from sensed world
         for monster in monsters:
-            if (self.heuristic(current_pos[0], current_pos[1], monster.x, monster.y) <= 1):
-                return True
-        return False
+            temp = monsters.pop()[0]
+            monsterPoses.append((temp.x, temp.y))
+
+        # run check for if the monster is nearby
+        for monster in monsterPoses:
+            if (self.heuristic(current_pos[0], current_pos[1], monster[0], monster[1]) <= threshold):
+                return True # monster is near the character
+        return False # monster is not near the character
 
    
     # Function to check for valid neighboring Cells, returns list of coordinates (modified from 'look_for_empty_cell')
