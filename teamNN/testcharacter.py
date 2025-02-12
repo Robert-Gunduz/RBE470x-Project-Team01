@@ -41,7 +41,7 @@ class TestCharacter(CharacterEntity):
     # Function for State change conditions
     def stateShift(self, wrld):
         state = 0 # default state (currently: A-Star)
-        if(self.monsterNear(wrld, self.x, self.y, 3)[0]):
+        if(self.monsterNear(wrld, self.x, self.y, 3)[0] and not self.book_it(wrld, self.monsterLocs(wrld))):
             state = 1 # Avoid monster state
         return state
     
@@ -191,6 +191,21 @@ class TestCharacter(CharacterEntity):
             moveCandidates[neighbor] = score
 
         return min(neighbors, key=lambda x: moveCandidates[x])
+    
+    def book_it(self, wrld, monsters):
+        s_world = SensedWorld.from_world(wrld)
+        exit = s_world.exitcell
+        immediateTreat = (1000000,1000000)
+        for monster in monsters:
+            if self.heuristic(self.x, self.y, monster[0], monster[1]) < self.heuristic(self.x, self.y, immediateTreat[0], immediateTreat[1]):
+                immediateTreat = (monster[0], monster[1])
+        if self.heuristic(self.x, self.y, exit[0], exit[1]) < self.heuristic(exit[0], exit[1], immediateTreat[0], immediateTreat[1]):
+            return True
+        else:
+            return False
+
+
+
 
     def min_moves(self, wrld, x, y):
         start = (x, y)
@@ -288,8 +303,8 @@ class TestCharacter(CharacterEntity):
                 t_g_count = g_count[curr] + self.heuristic(curr[0], curr[1], neighbor[0], neighbor[1])
                 
                 monster_near = self.monsterNear(wrld, neighbor[0], neighbor[1], 5)
-                if(monster_near[0]):
-                    t_g_count += 1000000/monster_near[1]
+                if(monster_near[0] and not monster_near[1] == 0):
+                    t_g_count += 10/monster_near[1] # 1000000
 
                 
                 # check if neigbor is in frontier already or if better t value has been found
