@@ -18,7 +18,7 @@ class TestCharacter(CharacterEntity):
         self.clearMap(wrld)
         state = self.stateShift(wrld) # Check for State change
         self.senseWorld(wrld)
-        print("monsterNear: ", self.monsterNear(wrld, self.x, self.y, 2))
+        # print("monsterNear: ", self.monsterNear(wrld, self.x, self.y, 3))
         print("State: ", state)
         match state:
             case 0: # Move using A star as normal
@@ -29,11 +29,19 @@ class TestCharacter(CharacterEntity):
             case 1: # Monster is nearby, move to avoid monster
                 # TODO: Add behavior to run away from monster\
                 #(dx, dy) = self.next_move(wrld) # A-Star finds next move
-                (x, y) = self.avoid_monster(wrld)
+                cell = self.avoid_safe_cell(wrld, 2)
+                print("SAFE CELL: ", cell)
+                if cell != 0:
+                    (x, y) = cell
+                else:
+                    (x,y) = self.avoid_monster(wrld)
+                    pass
+
                 print("Move direction: ", (x, y))
                 self.move(x - self.x, y - self.y)
                 pass
             case _: # default, state unaccounted for
+                # self.monsterHeuristic(wrld, 3)
                 print("WARNING: state not accounted for, please add proper behavior")
                 pass
         
@@ -41,8 +49,12 @@ class TestCharacter(CharacterEntity):
     # Function for State change conditions
     def stateShift(self, wrld):
         state = 0 # default state (currently: A-Star)
-        if(self.monsterNear(wrld, self.x, self.y, 3)[0] and not self.book_it(wrld, self.monsterLocs(wrld))):
-            state = 1 # Avoid monster state
+        if(self.isMonsterNear(wrld, self.x, self.y, 3)[0] and not self.book_it(wrld, self.monsterLocs(wrld))):
+            state = 1
+        # near = self.isMonsterNear(wrld, self.x, self.y, 3)
+        # print(near)
+        # if(near[0]):
+        #     state = 1 # Avoid monster state
         return state
     
     def clearMap(self, wrld):
@@ -77,6 +89,8 @@ class TestCharacter(CharacterEntity):
         monsters = list(s_world.monsters.values())
         monsterPoses = []
 
+        monsterHeuristic = self.monsterHeuristic(wrld, threshold)
+
         # generate list of Monster coordinates from sensed world
         for monster in monsters:
             temp = monster[0]
@@ -87,6 +101,23 @@ class TestCharacter(CharacterEntity):
             monsterDist = self.heuristic(current_pos[0], current_pos[1], monster[0], monster[1])
             if (monsterDist <= threshold):
 
+                return (True, monsterDist) # monster is near the character
+        return (False, -1) # monster is not near the character
+    
+    # Function to determine if a monster is nearby, returns true if monster is within threshold
+    def isMonsterNear(self, wrld, x, y, threshold):
+        current_pos = (x, y)
+
+        monsterHeuristic = self.monsterHeuristic(wrld, threshold)
+        monsterMoves = list(monsterHeuristic.keys())
+
+        # run check for if the monster is nearby
+        for move in monsterMoves:
+            monsterDist = self.heuristic(current_pos[0], current_pos[1], move[0], move[1])
+            # print("Monster Moves: ", move)
+            # print("CurrentPos, ", current_pos)
+            # print("Equal? ", current_pos == move)
+            if (current_pos == move):
                 return (True, monsterDist) # monster is near the character
         return (False, -1) # monster is not near the character
     
@@ -115,22 +146,42 @@ class TestCharacter(CharacterEntity):
             monsterPoses.append((temp.x, temp.y))
         pass
 
+        # for monsterPos in monsterPoses:
+        #     poses = []
+        #     visited = []
+        #     poses.append(monsterPos)
+        #     monsterHeuristic[monsterPos] = 100000
+        #     currentLookahead = 1
+        #     while len(poses):
+        #         pose = poses.pop(0)
+        #         for neighbor in self.monster_neighbors(s_world, pose[0], pose[1]):
+        #             if neighbor not in visited:
+        #                 if (currentLookahead < lookahead):
+        #                     poses.append(neighbor)
+        #                 visited.append(neighbor)
+        #                 monsterHeuristic[neighbor] =  10000 # some set number
+        #                 self.set_cell_color(neighbor[0], neighbor[1], Back.RED)
+        #         currentLookahead += 1
+
         for monsterPos in monsterPoses:
-            poses = []
-            visited = []
-            poses.append(monsterPos)
-            currentLookahead = 1
-            while len(poses):
-                pose = poses.pop()
-                for neighbor in self.neighbors(s_world, pose[0], pose[1]):
+            queue = [(monsterPos, 0)]  # (position, depth)
+            visited = set()
+            visited.add(monsterPos)
+            monsterHeuristic[monsterPos] = 100000
+
+            while queue:
+                pose, depth = queue.pop(0)
+                if depth >= lookahead:
+                    continue  # Stop expanding if depth limit is reached
+
+                for neighbor in self.monster_neighbors(s_world, pose[0], pose[1]):
                     if neighbor not in visited:
-                        if (currentLookahead < lookahead):
-                            poses.append(neighbor)
-                        visited.append(neighbor)
-                    monsterHeuristic[neighbor] =  10000 # some set number
-                    self.set_cell_color(neighbor[0], neighbor[1], Back.RED)
-                currentLookahead += 1
-                
+                        visited.add(neighbor)
+                        queue.append((neighbor, depth + 1))
+                        monsterHeuristic[neighbor] = 10000  # Assign heuristic value
+                        # self.set_cell_color(neighbor[0], neighbor[1], Fore.WHITE+Back.RED)
+
+
         return monsterHeuristic
         
 
@@ -151,6 +202,26 @@ class TestCharacter(CharacterEntity):
                         # Is this cell safe?
                         if(wrld.exit_at(x + dx, y + dy) or
                            wrld.empty_at(x + dx, y + dy)):
+                            # Yes
+                            cells.append((x + dx, y + dy))
+        # All done
+        return cells
+    
+    # Function to check for valid neighboring Cells, returns list of coordinates (modified from 'look_for_empty_cell')
+    def monster_neighbors(self, wrld, x, y):
+        # List of empty cells
+        cells = []
+        # Go through neighboring cells
+        for dx in [-1, 0, 1]:
+            # Avoid out-of-bounds access
+            if ((x + dx >= 0) and (x + dx < wrld.width())):
+                for dy in [-1, 0, 1]:
+                    # Avoid out-of-bounds access
+                    if ((y + dy >= 0) and (y + dy < wrld.height())):
+                        # Is this cell safe?
+                        if(wrld.exit_at(x + dx, y + dy) or
+                           wrld.empty_at(x + dx, y + dy) or
+                           (x+dx, y+dy) == (self.x, self.y)):
                             # Yes
                             cells.append((x + dx, y + dy))
         # All done
@@ -226,7 +297,7 @@ class TestCharacter(CharacterEntity):
 
             # Start path tracing if current node is the goal
             if curr == goal:
-                self.monsterHeuristic(wrld, 2)
+                # self.monsterHeuristic(wrld, 2)
                 path = self.trace_path(came_from, curr)
                 pathLen = len(path)
                 return pathLen # return the next node (suggested next move from path)
@@ -247,7 +318,7 @@ class TestCharacter(CharacterEntity):
                 # check if neigbor is in frontier already or if better t value has been found
                 if neighbor not in frontier:
                     frontier.append(neighbor)
-                    self.set_cell_color(neighbor[0], neighbor[1], Back.BLUE)
+                    # self.set_cell_color(neighbor[0], neighbor[1], Back.BLUE) # Frontier visualization
                 elif t_g_count >= g_count[neighbor]:
                     continue
                 
@@ -258,7 +329,27 @@ class TestCharacter(CharacterEntity):
         
         return None # Return Nonetype if no valid path has been found to the End Position
     
+    def avoid_safe_cell(self, wrld, threshold=2):
+        s_world = SensedWorld.from_world(wrld)
+        self.W_exit = s_world.exitcell
+        monsterLocs = self.monsterLocs(wrld)
+        neighbors = self.neighbors(wrld, self.x, self.y)
+        moveCandidates = {}
 
+        unsafeMoves = self.monsterHeuristic(wrld, threshold)
+
+        for neighbor in neighbors:
+            # Only consider the neighbor if it's NOT in the monster heuristic map
+            if neighbor not in unsafeMoves:
+                moveCandidates[neighbor] = self.heuristic(neighbor[0], neighbor[1], self.W_exit[0], self.W_exit[1])
+
+        # If all moves are unsafe, return 0
+        if not moveCandidates:
+            return 0
+
+        # Choose the move with the lowest heuristic value (closer to exit)
+        return min(moveCandidates, key=moveCandidates.get)
+    
     # returns the next move coordinates suggested by A-Star
     def next_move(self, wrld:World, x, y):
         start = (x, y)
@@ -279,7 +370,7 @@ class TestCharacter(CharacterEntity):
 
             # Start path tracing if current node is the goal
             if curr == goal:
-                self.monsterHeuristic(wrld, 2)
+                # self.monsterHeuristic(wrld, 2)
                 path = self.trace_path(came_from, curr)
                 pathLen = len(path)
                 #if(pathLen != 1):
@@ -302,15 +393,15 @@ class TestCharacter(CharacterEntity):
                 # current g value calculation
                 t_g_count = g_count[curr] + self.heuristic(curr[0], curr[1], neighbor[0], neighbor[1])
                 
-                monster_near = self.monsterNear(wrld, neighbor[0], neighbor[1], 5)
-                if(monster_near[0] and not monster_near[1] == 0):
-                    t_g_count += 10/monster_near[1] # 1000000
+                monster_near = self.monsterNear(wrld, neighbor[0], neighbor[1], 6)
+                if(monster_near[0]):
+                    t_g_count += 10/(monster_near[1]+0.001) # not 0 so it doesn't crash
 
                 
                 # check if neigbor is in frontier already or if better t value has been found
                 if neighbor not in frontier:
                     frontier.append(neighbor)
-                    self.set_cell_color(neighbor[0], neighbor[1], Back.BLUE)
+                    # self.set_cell_color(neighbor[0], neighbor[1], Back.BLUE) # Frontier visualization
                 elif t_g_count >= g_count[neighbor]:
                     continue
 
