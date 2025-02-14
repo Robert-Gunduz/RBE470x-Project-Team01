@@ -17,8 +17,6 @@ class TestCharacter(CharacterEntity):
         state = 0
         self.clearMap(wrld)
         state = self.stateShift(wrld) # Check for State change
-        self.senseWorld(wrld)
-        # print("monsterNear: ", self.monsterNear(wrld, self.x, self.y, 3))
         print("State: ", state)
         match state:
             case 0: # Move using A star as normal
@@ -27,8 +25,6 @@ class TestCharacter(CharacterEntity):
                 self.move(dx - self.x, dy - self.y)
                 pass
             case 1: # Monster is nearby, move to avoid monster
-                # TODO: Add behavior to run away from monster\
-                #(dx, dy) = self.next_move(wrld) # A-Star finds next move
                 cell = self.avoid_safe_cell(wrld, 2)
                 print("SAFE CELL: ", cell)
                 if cell != 0:
@@ -41,7 +37,6 @@ class TestCharacter(CharacterEntity):
                 self.move(x - self.x, y - self.y)
                 pass
             case _: # default, state unaccounted for
-                # self.monsterHeuristic(wrld, 3)
                 print("WARNING: state not accounted for, please add proper behavior")
                 pass
         
@@ -51,35 +46,12 @@ class TestCharacter(CharacterEntity):
         state = 0 # default state (currently: A-Star)
         if(self.isMonsterNear(wrld, self.x, self.y, 3)[0] and not self.book_it(wrld, self.monsterLocs(wrld))):
             state = 1
-        # near = self.isMonsterNear(wrld, self.x, self.y, 3)
-        # print(near)
-        # if(near[0]):
-        #     state = 1 # Avoid monster state
         return state
     
     def clearMap(self, wrld):
         for y in range(wrld.height()):
             for x in range(wrld.width()):
                 self.set_cell_color(x, y, Fore.BLACK + Back.BLACK)
-                pass
-        
-            
-
-    def senseWorld(self, wrld:World):
-        s_world = SensedWorld.from_world(wrld)
-        self.W_width = s_world.width()
-        self.W_height = s_world.height()
-        self.W_exit = s_world.exitcell
-        self.monsters = list(s_world.monsters.values())
-        if (len(self.monsters)):
-            monster:MonsterEntity = self.monsters.pop()[0]
-            monsterPoses = (monster.x, monster.y) # change this to lambda of monster poses to get list of monster poses
-        # print("Width: ", self.W_width, "\nHeight: ", self.W_height, "\nExit: ", self.W_exit, "Monster Pos: ", monsterPoses)
-
-        # do some sensing for heuristics?
-        for y in range(self.W_height):
-            for x in range(self.W_width):
-                # if(wrld.exitcell())
                 pass
 
     # Function to determine if a monster is nearby, returns true if monster is within threshold
@@ -114,9 +86,6 @@ class TestCharacter(CharacterEntity):
         # run check for if the monster is nearby
         for move in monsterMoves:
             monsterDist = self.heuristic(current_pos[0], current_pos[1], move[0], move[1])
-            # print("Monster Moves: ", move)
-            # print("CurrentPos, ", current_pos)
-            # print("Equal? ", current_pos == move)
             if (current_pos == move):
                 return (True, monsterDist) # monster is near the character
         return (False, -1) # monster is not near the character
@@ -145,23 +114,6 @@ class TestCharacter(CharacterEntity):
             temp = monster[0]
             monsterPoses.append((temp.x, temp.y))
         pass
-
-        # for monsterPos in monsterPoses:
-        #     poses = []
-        #     visited = []
-        #     poses.append(monsterPos)
-        #     monsterHeuristic[monsterPos] = 100000
-        #     currentLookahead = 1
-        #     while len(poses):
-        #         pose = poses.pop(0)
-        #         for neighbor in self.monster_neighbors(s_world, pose[0], pose[1]):
-        #             if neighbor not in visited:
-        #                 if (currentLookahead < lookahead):
-        #                     poses.append(neighbor)
-        #                 visited.append(neighbor)
-        #                 monsterHeuristic[neighbor] =  10000 # some set number
-        #                 self.set_cell_color(neighbor[0], neighbor[1], Back.RED)
-        #         currentLookahead += 1
 
         for monsterPos in monsterPoses:
             queue = [(monsterPos, 0)]  # (position, depth)
@@ -297,7 +249,6 @@ class TestCharacter(CharacterEntity):
 
             # Start path tracing if current node is the goal
             if curr == goal:
-                # self.monsterHeuristic(wrld, 2)
                 path = self.trace_path(came_from, curr)
                 pathLen = len(path)
                 return pathLen # return the next node (suggested next move from path)
@@ -332,7 +283,6 @@ class TestCharacter(CharacterEntity):
     def avoid_safe_cell(self, wrld, threshold=2):
         s_world = SensedWorld.from_world(wrld)
         self.W_exit = s_world.exitcell
-        monsterLocs = self.monsterLocs(wrld)
         neighbors = self.neighbors(wrld, self.x, self.y)
         moveCandidates = {}
 
@@ -370,10 +320,8 @@ class TestCharacter(CharacterEntity):
 
             # Start path tracing if current node is the goal
             if curr == goal:
-                # self.monsterHeuristic(wrld, 2)
                 path = self.trace_path(came_from, curr)
                 pathLen = len(path)
-                #if(pathLen != 1):
                 path.pop() # Pop start node (currently occupied by character)
                 nextPos = path.pop()
                 return (nextPos[0], nextPos[1], pathLen) # return the next node (suggested next move from path)
@@ -388,8 +336,6 @@ class TestCharacter(CharacterEntity):
                 if neighbor in explored:
                     continue
 
-                
-                
                 # current g value calculation
                 t_g_count = g_count[curr] + self.heuristic(curr[0], curr[1], neighbor[0], neighbor[1])
                 
@@ -404,8 +350,6 @@ class TestCharacter(CharacterEntity):
                     # self.set_cell_color(neighbor[0], neighbor[1], Back.BLUE) # Frontier visualization
                 elif t_g_count >= g_count[neighbor]:
                     continue
-
-                # f_count.update(self.monsterHeuristic(wrld, 3))
                 
                 # Add node to the came_from dictionary, G values, and F values for frontier search and path reconstruction
                 came_from[neighbor] = curr
@@ -449,8 +393,6 @@ class TestCharacter4(CharacterEntity):
         state = 0
         self.clearMap(wrld)
         state = self.stateShift(wrld)  # Check for State change
-        self.senseWorld(wrld)
-        # print("monsterNear: ", self.monsterNear(wrld, self.x, self.y, 3))
         print("State: ", state)
         match state:
             case 0:  # Move using A star as normal
@@ -459,13 +401,11 @@ class TestCharacter4(CharacterEntity):
                 self.move(dx - self.x, dy - self.y)
                 pass
             case 1:  # Monster is nearby, move to avoid monster
-                # TODO: Add behavior to run away from monster\
                 (x, y) = self.avoid_monster(wrld)
                 print("Move direction: ", (x, y))
                 self.move(x - self.x, y - self.y)
                 pass
             case _:  # default, state unaccounted for
-                # self.monsterHeuristic(wrld, 3)
                 print("WARNING: state not accounted for, please add proper behavior")
                 pass
 
@@ -474,10 +414,6 @@ class TestCharacter4(CharacterEntity):
         state = 0  # default state (currently: A-Star)
         if (self.isMonsterNear(wrld, self.x, self.y, 3)[0] and not self.book_it(wrld, self.monsterLocs(wrld))):
             state = 1
-        # near = self.isMonsterNear(wrld, self.x, self.y, 3)
-        # print(near)
-        # if(near[0]):
-        #     state = 1 # Avoid monster state
         return state
 
     def clearMap(self, wrld):
@@ -486,31 +422,12 @@ class TestCharacter4(CharacterEntity):
                 self.set_cell_color(x, y, Fore.BLACK + Back.BLACK)
                 pass
 
-    def senseWorld(self, wrld: World):
-        s_world = SensedWorld.from_world(wrld)
-        self.W_width = s_world.width()
-        self.W_height = s_world.height()
-        self.W_exit = s_world.exitcell
-        self.monsters = list(s_world.monsters.values())
-        if (len(self.monsters)):
-            monster: MonsterEntity = self.monsters.pop()[0]
-            monsterPoses = (monster.x, monster.y)  # change this to lambda of monster poses to get list of monster poses
-        # print("Width: ", self.W_width, "\nHeight: ", self.W_height, "\nExit: ", self.W_exit, "Monster Pos: ", monsterPoses)
-
-        # do some sensing for heuristics?
-        for y in range(self.W_height):
-            for x in range(self.W_width):
-                # if(wrld.exitcell())
-                pass
-
     # Function to determine if a monster is nearby, returns true if monster is within threshold
     def monsterNear(self, wrld, x, y, threshold):
         current_pos = (x, y)
         s_world = SensedWorld.from_world(wrld)
         monsters = list(s_world.monsters.values())
         monsterPoses = []
-
-        monsterHeuristic = self.monsterHeuristic(wrld, threshold)
 
         # generate list of Monster coordinates from sensed world
         for monster in monsters:
@@ -534,9 +451,6 @@ class TestCharacter4(CharacterEntity):
         # run check for if the monster is nearby
         for move in monsterMoves:
             monsterDist = self.heuristic(current_pos[0], current_pos[1], move[0], move[1])
-            # print("Monster Moves: ", move)
-            # print("CurrentPos, ", current_pos)
-            # print("Equal? ", current_pos == move)
             if (current_pos == move):
                 return (True, monsterDist)  # monster is near the character
         return (False, -1)  # monster is not near the character
@@ -564,23 +478,6 @@ class TestCharacter4(CharacterEntity):
             temp = monster[0]
             monsterPoses.append((temp.x, temp.y))
         pass
-
-        # for monsterPos in monsterPoses:
-        #     poses = []
-        #     visited = []
-        #     poses.append(monsterPos)
-        #     monsterHeuristic[monsterPos] = 100000
-        #     currentLookahead = 1
-        #     while len(poses):
-        #         pose = poses.pop(0)
-        #         for neighbor in self.monster_neighbors(s_world, pose[0], pose[1]):
-        #             if neighbor not in visited:
-        #                 if (currentLookahead < lookahead):
-        #                     poses.append(neighbor)
-        #                 visited.append(neighbor)
-        #                 monsterHeuristic[neighbor] =  10000 # some set number
-        #                 self.set_cell_color(neighbor[0], neighbor[1], Back.RED)
-        #         currentLookahead += 1
 
         for monsterPos in monsterPoses:
             queue = [(monsterPos, 0)]  # (position, depth)
@@ -763,10 +660,8 @@ class TestCharacter4(CharacterEntity):
 
             # Start path tracing if current node is the goal
             if curr == goal:
-                # self.monsterHeuristic(wrld, 2)
                 path = self.trace_path(came_from, curr)
                 pathLen = len(path)
-                # if(pathLen != 1):
                 path.pop()  # Pop start node (currently occupied by character)
                 nextPos = path.pop()
                 return (nextPos[0], nextPos[1], pathLen)  # return the next node (suggested next move from path)
@@ -794,8 +689,6 @@ class TestCharacter4(CharacterEntity):
                     # self.set_cell_color(neighbor[0], neighbor[1], Back.BLUE) # Frontier visualization
                 elif t_g_count >= g_count[neighbor]:
                     continue
-
-                # f_count.update(self.monsterHeuristic(wrld, 3))
 
                 # Add node to the came_from dictionary, G values, and F values for frontier search and path reconstruction
                 came_from[neighbor] = curr
