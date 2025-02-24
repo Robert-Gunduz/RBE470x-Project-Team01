@@ -23,11 +23,17 @@ class TestCharacter(CharacterEntity):
         ExitSquare = self.exit_location(wrld)
         MonsterLocations = self.monster_locations(wrld)
         WallLocations = self.wall_locations(wrld)
+        PathToExit = self.A_star(wrld, MySquare[0], MySquare[1], ExitSquare[0], ExitSquare[1])
+        if len(PathToExit) == 0:
+            isPathOpen = False
+        else:
+            isPathOpen = True
         if(self.DEBUG):
             print("My Position: ", MySquare)
             print("Goal Position: ", ExitSquare)
             print("Monster Positions: ", MonsterLocations)
             print("Wall Positions: ", WallLocations)
+            print("Open path to Exit?: ", isPathOpen)
 
         # state machine 
         state = self.state_machine(wrld)
@@ -166,6 +172,6 @@ class TestCharacter(CharacterEntity):
                 # Add node to the came_from dictionary, G values, and F values for frontier search and path reconstruction
                 came_from[neighbor] = curr
                 g_count[neighbor] = t_g_count
-                f_count[neighbor] = g_count[neighbor] + self.heuristic(neighbor[0], neighbor[1], goal[0], goal[1])
+                f_count[neighbor] = g_count[neighbor] + self.chebyshev(neighbor[0], neighbor[1], goal[0], goal[1])
 
         return []  # Return an empty list if no path to the exit could be found
