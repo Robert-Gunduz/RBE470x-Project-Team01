@@ -128,6 +128,22 @@ class TestCharacter(CharacterEntity):
     # Function to return exit location(standardize semantics)
     def exit_location(self, wrld):
         return wrld.exitcell
+
+    # Get current explosion locations
+    def current_explosion_locations(self, wrld:World) -> dict:
+        return wrld.explosions
+    
+    # TODO: get future explosions
+    def explosion_paths(self, wrld:World):
+        return wrld.explosions # Change this to look at bombs
+
+    # Get current time-steps til bomb explodes
+    def bomb_timer(self, wrld:World):
+        return wrld.bomb_time
+
+    # Get explosion timer: -1 if no time, 
+    def explosion_timer(self, wrld:World):
+        return wrld.expl_duration
     
     # Function to reconstruct path (for A-Star)
     def trace_path(self, came_from, current):
