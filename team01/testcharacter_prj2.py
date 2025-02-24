@@ -79,6 +79,29 @@ class TestCharacter(CharacterEntity):
         # All done
         return cells
     
+    # Function to check for valid neighboring Cells and neighboring cells occupied by walls 
+    def all_neighbors(self, wrld, x, y):
+        # List of empty cells
+        cells = []
+        # Go through neighboring cells
+        for dx in [-1, 0, 1]:
+            # Avoid out-of-bounds access
+            if ((x + dx >= 0) and (x + dx < wrld.width())):
+                for dy in [-1, 0, 1]:
+                    # Avoid out-of-bounds access
+                    if ((y + dy >= 0) and (y + dy < wrld.height())):
+                        # Is this cell safe?
+                        if(wrld.exit_at(x + dx, y + dy) or
+                           self.wall_at(x + dx,y + dy) or
+                           not self.bomb_at(x + dx,y + dy) or
+                           not self.explosion_at(x + dx,y + dy) or
+                           not self.monsters_at(x + dx,y + dy) or
+                           not self.characters_at(x + dx,y + dy)):
+                            # Yes
+                            cells.append((x + dx, y + dy, self.wall_at(x + dx,y + dy)))
+        # All done
+        return cells
+    
     # Function to return location of all monsters on the map
     def monster_locations(self, wrld):
         s_world = SensedWorld.from_world(wrld)
