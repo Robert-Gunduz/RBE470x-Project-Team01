@@ -214,3 +214,29 @@ class TestCharacter(CharacterEntity):
                 f_count[neighbor] = g_count[neighbor] + self.chebyshev(neighbor[0], neighbor[1], goal[0], goal[1])
 
         return []  # Return an empty list if no path to the exit could be found
+    
+    ### Components for Q values ###
+
+    # Q Function for Exit
+    def Q_exit(self, wrld, x, y):
+        exitlocation = self.exit_location(wrld)
+        de = self.euclidian(x, y, exitlocation[0], exitlocation[1])
+        return 1/(de +1)
+    
+    # Q Function for Monsters
+    def Q_monster(self, wrld, x, y):
+       monsterlocations = self.monster_locations(wrld)
+       dms = []
+       for monster in monsterlocations:
+           dms.append(self.euclidian(x, y, monster[0], monster[1]))
+       dm = min(dms)
+       return 1/(dm +1)
+    
+    # Q Function for Explosions
+    def Q_explosions(self, wrld, x, y): # Unsure if will work
+       explosionlocations = self.current_explosion_locations(wrld)
+       dxs = []
+       for explosion in explosionlocations:
+           dxs.append(self.euclidian(x, y, explosion[0], explosion[1]))
+       dx = min(dxs)
+       return 1/(dx +1)
