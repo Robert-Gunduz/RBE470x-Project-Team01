@@ -1,18 +1,33 @@
 # This is necessary to find the main code
 from asyncio import PriorityQueue
 import sys
+import json
 
 from sensed_world import SensedWorld
 from world import World
 sys.path.insert(0, '../bomberman')
 # Import necessary stuff
 from entity import CharacterEntity, MonsterEntity
+from events import *
 from colorama import Fore, Back
 
 class TestCharacter(CharacterEntity):
 
     # Toggle Debug Statements:
-    DEBUG = True
+    DEBUG = False
+    FILETRAIN = True
+
+    # Weights for Q-Learning and other values (exit, monster, explosion)
+    Qweights = [4, -1, -3, -3]
+    if(FILETRAIN == True):
+        #f = 'test.json'
+        #with open(f, 'w') as file:
+        #    json.dump(Qweights, file)
+        f = 'test.json'
+        with open(f, 'r') as file:
+            Qweights = json.load(file)
+    learningRate = 0.01
+    discountFactor = 0.9
 
     # Runs when it is this Character's turn 
     def do(self, wrld):
@@ -34,13 +49,22 @@ class TestCharacter(CharacterEntity):
             print("Monster Positions: ", MonsterLocations)
             print("Wall Positions: ", WallLocations)
             print("Open path to Exit?: ", isPathOpen)
+            print("")
+            print("Q_weights: ", self.Qweights)
 
         # state machine 
         state = self.state_machine(wrld)
         match state:
             case 0:
+                NextMove = self.move_Q(wrld, self.x, self.y)
+                self.Q_Update(wrld, NextMove[0], NextMove[1])
+                self.move(NextMove[0] - self.x, NextMove[1] - self.y)
                 pass
             case 1:
+                self.place_bomb()
+                NextMove = self.move_Q(wrld, self.x, self.y)
+                self.Q_Update(wrld, NextMove[0], NextMove[1])
+                self.move(NextMove[0] - self.x, NextMove[1] - self.y)
                 pass
             case _: # default, state unaccounted for
                 print("WARNING: state not accounted for, please add proper behavior")
@@ -92,13 +116,13 @@ class TestCharacter(CharacterEntity):
                     if ((y + dy >= 0) and (y + dy < wrld.height())):
                         # Is this cell safe?
                         if(wrld.exit_at(x + dx, y + dy) or
-                           self.wall_at(x + dx,y + dy) or
-                           not self.bomb_at(x + dx,y + dy) or
-                           not self.explosion_at(x + dx,y + dy) or
-                           not self.monsters_at(x + dx,y + dy) or
-                           not self.characters_at(x + dx,y + dy)):
+                           wrld.wall_at(x + dx,y + dy) or
+                           not wrld.bomb_at(x + dx,y + dy) or
+                           not wrld.explosion_at(x + dx,y + dy) or
+                           not wrld.monsters_at(x + dx,y + dy) or
+                           not wrld.characters_at(x + dx,y + dy)):
                             # Yes
-                            cells.append((x + dx, y + dy, self.wall_at(x + dx,y + dy)))
+                            cells.append((x + dx, y + dy, wrld.wall_at(x + dx,y + dy)))
         # All done
         return cells
     
@@ -130,8 +154,13 @@ class TestCharacter(CharacterEntity):
         return wrld.exitcell
 
     # Get current explosion locations
-    def current_explosion_locations(self, wrld:World) -> dict:
-        return wrld.explosions
+    def explosion_locations(self, wrld:World):
+        explosions = []
+        for i in range(wrld.width()):
+            for j in range(wrld.height()):
+                if(wrld.explosion_at(i, j)):
+                    explosions.append((i, j))
+        return explosions
     
     # TODO: get future explosions
     def explosion_paths(self, wrld:World):
@@ -159,9 +188,18 @@ class TestCharacter(CharacterEntity):
     # Function for State change conditions
     def state_machine(self, wrld):
         state = 0 # default state (currently: A-Star)
-        if(False):
-            state = 1
+        if(self.open_hole(wrld, self.x, self.y)):
+            state = 1 # drop a bomb state
         return state
+    
+    # Function to detect when to drop a bomb
+    def open_hole(self, wrld, x, y):
+        Move_Dict = {}
+        destinations = self.all_neighbors(wrld, x, y)
+        for move in destinations:
+            Move_Dict[move] = self.Q_value(wrld, move[0], move[1])
+        bestLoc = max(destinations, key=lambda x: Move_Dict[x])
+        return (bestLoc[2])
 
     ### A-Star Algorithm ###
 
@@ -215,28 +253,110 @@ class TestCharacter(CharacterEntity):
 
         return []  # Return an empty list if no path to the exit could be found
     
+    ### Components for Reward function ###
+    def Rewards(self, wrld, x, y):
+        print("here ----")
+        reward = -1
+        sensed = SensedWorld.from_world(wrld)
+        (nxt, nxt_events) = sensed.next()
+        print(nxt_events)
+        for e in nxt_events:
+            print(e.tpe)
+        #for e in sensed.events:
+            if e.tpe == Event.CHARACTER_FOUND_EXIT:
+                reward = 1000
+                break
+            elif e.tpe == Event.BOMB_HIT_CHARACTER:
+                reward = -1000
+                print("I blew up!")
+                break
+            elif e.tpe == Event.CHARACTER_KILLED_BY_MONSTER:
+                reward = -1000
+                break
+        return reward
+
     ### Components for Q values ###
 
     # Q Function for Exit
     def Q_exit(self, wrld, x, y):
         exitlocation = self.exit_location(wrld)
         de = self.euclidian(x, y, exitlocation[0], exitlocation[1])
-        return 1/(de +1)
+        return 1/(de + 1)
     
     # Q Function for Monsters
     def Q_monster(self, wrld, x, y):
        monsterlocations = self.monster_locations(wrld)
+       dm = 999
        dms = []
        for monster in monsterlocations:
            dms.append(self.euclidian(x, y, monster[0], monster[1]))
-       dm = min(dms)
-       return 1/(dm +1)
+       if not len(dms) == 0:
+           dm = min(dms)
+       return 1/(dm + 1)
     
     # Q Function for Explosions
     def Q_explosions(self, wrld, x, y): # Unsure if will work
-       explosionlocations = self.current_explosion_locations(wrld)
+       explosionlocations = self.explosion_locations(wrld)
+       dx = 999
        dxs = []
        for explosion in explosionlocations:
            dxs.append(self.euclidian(x, y, explosion[0], explosion[1]))
-       dx = min(dxs)
-       return 1/(dx +1)
+       if not len(dxs) == 0:
+           dx = min(dxs)
+       return 1/(dx + 1)
+    
+    # Q Function for Bomb (along cardinal directions)
+    def Q_bomb(self, wrld, x, y):
+        bomb = (-1, -1)
+        db = 999
+        for i in range(0, wrld.width()):
+            for j in range(0, wrld.height()):
+                if wrld.bomb_at(i, j):
+                    bomb = (i, j)
+        dbs = []
+        if not bomb == (-1, -1):
+            dbs = [self.euclidian(i, 0, x, 0), self.euclidian(0, j, 0, y)]
+        if not len(dbs) == 0:
+            db = min(dbs)
+        return 1/(db + 1)
+
+    
+    # Approximate Q function for given coordinate
+    def Q_value(self, wrld, x, y):
+        We = self.Qweights[0]
+        Wm = self.Qweights[1]
+        Wx = self.Qweights[2]
+        Wb = self.Qweights[3]
+
+        return (We * self.Q_exit(wrld, x, y)) + (Wm * self.Q_monster(wrld, x, y)) + (Wx * self.Q_explosions(wrld, x, y)) + (Wb * self.Q_bomb(wrld, x, y))
+    
+    # Function to move to best Q-value:
+    def move_Q(self, wrld, x, y):
+        Move_Dict = {}
+        destinations = self.neighbors(wrld, x, y)
+        for move in destinations:
+            Move_Dict[move] = self.Q_value(wrld, move[0], move[1])
+        return max(destinations, key=lambda x: Move_Dict[x])
+    
+    def Q_Update(self, wrld, x, y):
+
+        reward = self.Rewards(wrld, x, y)
+        print("Reward: ", reward)
+        neighbors = self.neighbors(wrld, x, y)
+        Qmax = 0
+        for neighbor in neighbors:
+            temp = self.Q_value(wrld, neighbor[0], neighbor[1])
+            if(temp > Qmax):
+                Qmax = temp
+        delta = (reward + self.discountFactor * Qmax) - self.Q_value(wrld, x, y)
+        
+        self.Qweights[0] = self.Qweights[0] + self.learningRate * delta * self.Q_exit(wrld, x, y)
+        self.Qweights[1] = self.Qweights[1] + self.learningRate * delta * self.Q_monster(wrld, x, y)
+        self.Qweights[2] = self.Qweights[2] + self.learningRate * delta * self.Q_explosions(wrld, x, y)
+        self.Qweights[3] = self.Qweights[3] + self.learningRate * delta * self.Q_bomb(wrld, x, y)
+
+        if(self.FILETRAIN == True):
+            f = 'test.json'
+            with open(f, 'w') as file:
+                json.dump(self.Qweights, file)
+
