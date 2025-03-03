@@ -258,21 +258,44 @@ class TestCharacter(CharacterEntity):
         print("here ----")
         reward = -1
         sensed = SensedWorld.from_world(wrld)
+        #character_ev = []
+        #character_ev = sensed.update_characters()
         (nxt, nxt_events) = sensed.next()
+        s_world = SensedWorld.from_world(wrld)
+        characters = list(s_world.characters.values())
+        characterPoses = []
+
+        # generate list of Monster coordinates from sensed world
+        for character in characters:
+            temp = character[0]
+            characterPoses.append((temp.x, temp.y))
+        
+        me = characterPoses[0]
+        print("Me: ", me)
+
         print(nxt_events)
-        for e in nxt_events:
-            print(e.tpe)
-        #for e in sensed.events:
-            if e.tpe == Event.CHARACTER_FOUND_EXIT:
-                reward = 1000
-                break
-            elif e.tpe == Event.BOMB_HIT_CHARACTER:
-                reward = -1000
-                print("I blew up!")
-                break
-            elif e.tpe == Event.CHARACTER_KILLED_BY_MONSTER:
-                reward = -1000
-                break
+        #print(character_ev)
+
+        if(self.Q_monster(nxt, me[0], me[1]) == 1):
+            reward = -1000
+        elif(self.Q_explosions(nxt, me[0], me[1]) == 1):
+            reward = -1000
+        elif(self.Q_exit(nxt, me[0], me[1]) == 1):
+            reward = 1000
+
+        #for e in nxt_events:
+        ##for e in character_ev:
+        #    print(e.tpe)
+        #    if e.tpe == Event.CHARACTER_FOUND_EXIT:
+        #        reward = 1000
+        #        break
+        #    elif e.tpe == Event.BOMB_HIT_CHARACTER:
+        #        reward = -1000
+        #        print("I blew up!")
+        #        break
+        #    elif e.tpe == Event.CHARACTER_KILLED_BY_MONSTER:
+        #        reward = -1000
+        #        break
         return reward
 
     ### Components for Q values ###
@@ -342,6 +365,7 @@ class TestCharacter(CharacterEntity):
 
         reward = self.Rewards(wrld, x, y)
         print("Reward: ", reward)
+        print("location: ", (self.x, self.y))
         neighbors = self.neighbors(wrld, x, y)
         Qmax = 0
         for neighbor in neighbors:
