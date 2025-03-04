@@ -22,7 +22,7 @@ g.add_character(TestCharacter("me", # name
 ))
 
 # Run!
-#for i in range(0, 1000):
+#for i in range(0, 200):
 #    g.go(1)
 
 g.go()

@@ -18,7 +18,7 @@ class TestCharacter(CharacterEntity):
     FILETRAIN = True
 
     # Weights for Q-Learning and other values (exit, monster, explosion)
-    Qweights = [4, -1, -3, -3]
+    Qweights = [4, -1]
     if(FILETRAIN == True):
         #f = 'test.json'
         #with open(f, 'w') as file:
@@ -26,8 +26,8 @@ class TestCharacter(CharacterEntity):
         f = 'test.json'
         with open(f, 'r') as file:
             Qweights = json.load(file)
-    learningRate = 0.01
-    discountFactor = 0.9
+    learningRate = 0.05
+    discountFactor = 0.8
 
     # Runs when it is this Character's turn 
     def do(self, wrld):
@@ -84,8 +84,26 @@ class TestCharacter(CharacterEntity):
     def euclidian(self, x1, y1, x2, y2):
         return pow(pow((x1 - x2), 2) + pow((y1 - y2), 2), 0.5)
     
+    # Helper to detect if cell is in bomb range:
+    def danger_zone(self, wrld, x, y):
+        bomb = (-1, -1)
+        value = False
+        for i in range(0, wrld.width()):
+            for j in range(0, wrld.height()):
+                if wrld.bomb_at(i, j):
+                    bomb = (i, j)
+        if(x == bomb[0]):
+            if(abs(y - bomb[1]) < (wrld.expl_range + 2)):
+                value = True
+        if(y == bomb[1]):
+            if(abs(x - bomb[0]) < (wrld.expl_range + 2)):
+                value = True
+        return value
+
     # Function to check for valid neighboring Cells, returns list of coordinates (modified from 'look_for_empty_cell')
     def neighbors(self, wrld, x, y):
+        sensed = SensedWorld.from_world(wrld)
+        (nxt, nxt_events) = sensed.next()
         # List of empty cells
         cells = []
         # Go through neighboring cells
@@ -97,7 +115,7 @@ class TestCharacter(CharacterEntity):
                     if ((y + dy >= 0) and (y + dy < wrld.height())):
                         # Is this cell safe?
                         if(wrld.exit_at(x + dx, y + dy) or
-                           wrld.empty_at(x + dx, y + dy)):
+                           (wrld.empty_at(x + dx, y + dy) and not self.danger_zone(wrld, x + dx, y + dy))):
                             # Yes
                             cells.append((x + dx, y + dy))
         # All done
@@ -256,7 +274,7 @@ class TestCharacter(CharacterEntity):
     ### Components for Reward function ###
     def Rewards(self, wrld, x, y):
         print("here ----")
-        reward = -1
+        reward = -5
         sensed = SensedWorld.from_world(wrld)
         #character_ev = []
         #character_ev = sensed.update_characters()
@@ -277,11 +295,11 @@ class TestCharacter(CharacterEntity):
         #print(character_ev)
 
         if(self.Q_monster(nxt, me[0], me[1]) == 1):
-            reward = -1000
+            reward = -500
         elif(self.Q_explosions(nxt, me[0], me[1]) == 1):
-            reward = -1000
+            reward = -500
         elif(self.Q_exit(nxt, me[0], me[1]) == 1):
-            reward = 1000
+            reward = 500
 
         #for e in nxt_events:
         ##for e in character_ev:
@@ -326,7 +344,9 @@ class TestCharacter(CharacterEntity):
            dxs.append(self.euclidian(x, y, explosion[0], explosion[1]))
        if not len(dxs) == 0:
            dx = min(dxs)
-       return 1/(dx + 1)
+           return 1/(dx + 1)
+       else:
+           return 0
     
     # Q Function for Bomb (along cardinal directions)
     def Q_bomb(self, wrld, x, y):
@@ -338,9 +358,13 @@ class TestCharacter(CharacterEntity):
                     bomb = (i, j)
         dbs = []
         if not bomb == (-1, -1):
-            dbs = [self.euclidian(i, 0, x, 0), self.euclidian(0, j, 0, y)]
+            #dbs = [self.euclidian(i, 0, x, 0), self.euclidian(0, j, 0, y)]
+            dbs = [abs(i - x), abs(j - y)]
+        else:
+            return 0
         if not len(dbs) == 0:
             db = min(dbs)
+        #print("Q_bomb: ", (x, y, 1/(db + 1)))
         return 1/(db + 1)
 
     
@@ -348,15 +372,19 @@ class TestCharacter(CharacterEntity):
     def Q_value(self, wrld, x, y):
         We = self.Qweights[0]
         Wm = self.Qweights[1]
-        Wx = self.Qweights[2]
-        Wb = self.Qweights[3]
-
-        return (We * self.Q_exit(wrld, x, y)) + (Wm * self.Q_monster(wrld, x, y)) + (Wx * self.Q_explosions(wrld, x, y)) + (Wb * self.Q_bomb(wrld, x, y))
+        #Wx = self.Qweights[2]
+        #Wb = self.Qweights[3]
+        value = (We * self.Q_exit(wrld, x, y)) + (Wm * self.Q_monster(wrld, x, y)) #+ (Wx * self.Q_explosions(wrld, x, y)) + (Wb * self.Q_bomb(wrld, x, y))
+        print("Q_value: ", (x, y, value))
+        return value
     
     # Function to move to best Q-value:
     def move_Q(self, wrld, x, y):
+        print("Q_move:")
         Move_Dict = {}
         destinations = self.neighbors(wrld, x, y)
+        if(len(destinations) == 0):
+            return (x, y)
         for move in destinations:
             Move_Dict[move] = self.Q_value(wrld, move[0], move[1])
         return max(destinations, key=lambda x: Move_Dict[x])
@@ -376,8 +404,8 @@ class TestCharacter(CharacterEntity):
         
         self.Qweights[0] = self.Qweights[0] + self.learningRate * delta * self.Q_exit(wrld, x, y)
         self.Qweights[1] = self.Qweights[1] + self.learningRate * delta * self.Q_monster(wrld, x, y)
-        self.Qweights[2] = self.Qweights[2] + self.learningRate * delta * self.Q_explosions(wrld, x, y)
-        self.Qweights[3] = self.Qweights[3] + self.learningRate * delta * self.Q_bomb(wrld, x, y)
+        #self.Qweights[2] = self.Qweights[2] + self.learningRate * delta * self.Q_explosions(wrld, x, y)
+        #self.Qweights[3] = self.Qweights[3] + self.learningRate * delta * self.Q_bomb(wrld, x, y)
 
         if(self.FILETRAIN == True):
             f = 'test.json'

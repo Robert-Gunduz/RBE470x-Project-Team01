@@ -28,4 +28,6 @@ g.add_character(TestCharacter("me", # name
 ))
 
 # Run!
-g.go()
+for _ in range(0, 200):
+    g.go(1)
+#g.go()
