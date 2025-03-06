@@ -26,7 +26,7 @@ class TestCharacter(CharacterEntity):
         f = 'test.json'
         with open(f, 'r') as file:
             Qweights = json.load(file)
-    learningRate = 0.05
+    learningRate = 0.5
     discountFactor = 0.8
 
     # Runs when it is this Character's turn 
@@ -273,8 +273,8 @@ class TestCharacter(CharacterEntity):
     
     ### Components for Reward function ###
     def Rewards(self, wrld, x, y):
-        print("here ----")
-        reward = -5
+        #print("here ----")
+        reward = 0
         sensed = SensedWorld.from_world(wrld)
         #character_ev = []
         #character_ev = sensed.update_characters()
@@ -289,17 +289,24 @@ class TestCharacter(CharacterEntity):
             characterPoses.append((temp.x, temp.y))
         
         me = characterPoses[0]
-        print("Me: ", me)
+        #print("Me: ", me)
 
-        print(nxt_events)
-        #print(character_ev)
-
-        if(self.Q_monster(nxt, me[0], me[1]) == 1):
-            reward = -500
-        elif(self.Q_explosions(nxt, me[0], me[1]) == 1):
-            reward = -500
-        elif(self.Q_exit(nxt, me[0], me[1]) == 1):
-            reward = 500
+        #print(nxt_events)
+        print(sensed.events)
+        for e in sensed.events:#nxt_events:
+            #if(self.Q_monster(nxt, me[0], me[1]) == 1):
+            if(e.tpe == Event.CHARACTER_FOUND_EXIT):
+                reward = -1000
+                print("Reward type: Found Exit!")
+            #elif(self.Q_explosions(nxt, me[0], me[1]) == 1):
+            elif(e.tpe == Event.BOMB_HIT_CHARACTER):
+                reward = -1000
+                print("Reward type: Killed by Bomb!")
+            #elif(self.Q_exit(nxt, me[0], me[1]) == 1):
+            elif(e.tpe == Event.CHARACTER_KILLED_BY_MONSTER):
+                reward = 1000
+                print("Reward type: Killed by Monster!")
+            print("reward: ", reward)
 
         #for e in nxt_events:
         ##for e in character_ev:
@@ -322,6 +329,7 @@ class TestCharacter(CharacterEntity):
     def Q_exit(self, wrld, x, y):
         exitlocation = self.exit_location(wrld)
         de = self.euclidian(x, y, exitlocation[0], exitlocation[1])
+        #print("dist to Exit: ", de)
         return 1/(de + 1)
     
     # Q Function for Monsters
@@ -333,6 +341,9 @@ class TestCharacter(CharacterEntity):
            dms.append(self.euclidian(x, y, monster[0], monster[1]))
        if not len(dms) == 0:
            dm = min(dms)
+           #print("dist to Monster: ", dm)
+       else:
+           return 0
        return 1/(dm + 1)
     
     # Q Function for Explosions
@@ -375,12 +386,12 @@ class TestCharacter(CharacterEntity):
         #Wx = self.Qweights[2]
         #Wb = self.Qweights[3]
         value = (We * self.Q_exit(wrld, x, y)) + (Wm * self.Q_monster(wrld, x, y)) #+ (Wx * self.Q_explosions(wrld, x, y)) + (Wb * self.Q_bomb(wrld, x, y))
-        print("Q_value: ", (x, y, value))
+        # print("Q_value: ", (x, y, value))
         return value
     
     # Function to move to best Q-value:
     def move_Q(self, wrld, x, y):
-        print("Q_move:")
+        #print("Q_move:")
         Move_Dict = {}
         destinations = self.neighbors(wrld, x, y)
         if(len(destinations) == 0):
@@ -392,8 +403,8 @@ class TestCharacter(CharacterEntity):
     def Q_Update(self, wrld, x, y):
 
         reward = self.Rewards(wrld, x, y)
-        print("Reward: ", reward)
-        print("location: ", (self.x, self.y))
+        #print("Reward: ", reward)
+        #print("location: ", (self.x, self.y))
         neighbors = self.neighbors(wrld, x, y)
         Qmax = 0
         for neighbor in neighbors:
