@@ -407,10 +407,11 @@ class TestCharacter(CharacterEntity):
         reward = self.Rewards(wrld, x, y)
         #print("Reward: ", reward)
         #print("location: ", (self.x, self.y))
-        neighbors = self.neighbors(wrld, x, y)
+        (futureWorld, _) = SensedWorld.from_world(wrld).next()
+        neighbors = self.neighbors(futureWorld, x, y)
         Qmax = 0
         for neighbor in neighbors:
-            temp = self.Q_value(wrld, neighbor[0], neighbor[1])
+            temp = self.Q_value(futureWorld, neighbor[0], neighbor[1])
             if(temp > Qmax):
                 Qmax = temp
         delta = (reward + self.discountFactor * Qmax) - self.Q_value(wrld, x, y)
