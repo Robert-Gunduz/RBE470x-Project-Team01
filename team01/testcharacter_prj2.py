@@ -88,15 +88,16 @@ class TestCharacter(CharacterEntity):
     def danger_zone(self, wrld, x, y):
         bomb = (-1, -1)
         value = False
+        bombTimeThreshold = 2
         for i in range(0, wrld.width()):
             for j in range(0, wrld.height()):
                 if wrld.bomb_at(i, j):
                     bomb = (i, j)
         if(x == bomb[0]):
-            if(abs(y - bomb[1]) < (wrld.expl_range + 2)):
+            if(abs(y - bomb[1]) < (wrld.expl_range + 2) and self.bomb_timer(wrld) <= bombTimeThreshold):
                 value = True
         if(y == bomb[1]):
-            if(abs(x - bomb[0]) < (wrld.expl_range + 2)):
+            if(abs(x - bomb[0]) < (wrld.expl_range + 2) and self.bomb_timer(wrld) <= bombTimeThreshold):
                 value = True
         return value
 
