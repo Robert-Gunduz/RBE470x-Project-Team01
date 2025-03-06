@@ -51,6 +51,7 @@ class TestCharacter(CharacterEntity):
             print("Open path to Exit?: ", isPathOpen)
             print("")
             print("Q_weights: ", self.Qweights)
+            print("Bomb Timer: ", self.bomb_timer(wrld))
 
         # state machine 
         state = self.state_machine(wrld)
@@ -180,16 +181,16 @@ class TestCharacter(CharacterEntity):
                 if(wrld.explosion_at(i, j)):
                     explosions.append((i, j))
         return explosions
-    
-    # TODO: get future explosions
-    def explosion_paths(self, wrld:World):
-        return wrld.explosions # Change this to look at bombs
 
-    # Get current time-steps til bomb explodes
+    # Get current time-steps til bomb explodes, -1 otherwise
     def bomb_timer(self, wrld:World):
-        return wrld.bomb_time
+        bombs = list(wrld.bombs.values())
+        if (len(bombs)):
+            bomb:BombEntity = bombs[0]
+            return bomb.timer
+        return -1
 
-    # Get explosion timer: -1 if no time, 
+    # Get time of explosion
     def explosion_timer(self, wrld:World):
         return wrld.expl_duration
     
