@@ -34,4 +34,5 @@ g.add_character(TestCharacter("me", # name
 ))
 
 # Run!
+g.world.characters[g.world.index(0, 0)][0].pick_file("V5.json")
 g.go()

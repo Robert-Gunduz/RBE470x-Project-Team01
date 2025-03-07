@@ -16,17 +16,19 @@ class TestCharacter(CharacterEntity):
     # Toggle Debug Statements:
     DEBUG = False
     FILETRAIN = True
-
+    filename = 'test.json'
+    with open(filename, 'r') as file:
+            Qweights = json.load(file)
     # Weights for Q-Learning and other values (exit, monster, explosion)
     Qweights = [4, -1]
     if(FILETRAIN == True):
         #f = 'test.json'
         #with open(f, 'w') as file:
         #    json.dump(Qweights, file)
-        f = 'test.json'
-        with open(f, 'r') as file:
+
+        with open(filename, 'r') as file:
             Qweights = json.load(file)
-    learningRate = 0.5
+    learningRate = 0.1
     discountFactor = 0.8
 
     # Runs when it is this Character's turn 
@@ -203,6 +205,11 @@ class TestCharacter(CharacterEntity):
             current = came_from[current]
         return path
     
+    def pick_file(self, name):
+        self.filename = name
+        with open(self.filename, 'r') as file:
+            self.Qweights = json.load(file)
+
     ### State Machine ###
 
     # Function for State change conditions
@@ -276,15 +283,26 @@ class TestCharacter(CharacterEntity):
     ### Components for Reward function ###
     def Rewards(self, wrld, x, y):
         #print("here ----")
-        reward = 0
+        reward = 0.01
         sensed = SensedWorld.from_world(wrld)
         #character_ev = []
         #character_ev = sensed.update_characters()
         (nxt, nxt_events) = sensed.next()
         s_world = SensedWorld.from_world(wrld)
-        characters = list(s_world.characters.values())
+        characters = list(sensed.characters.values())
         characterPoses = []
 
+        exitlocation = self.exit_location(wrld)
+        de = self.euclidian(x, y, exitlocation[0], exitlocation[1])
+        monsterlocations = self.monster_locations(nxt)
+        dms = []
+        for monster in monsterlocations:
+            dms.append(self.euclidian(x, y, monster[0], monster[1]))
+        if not len(dms) == 0:
+            dm = min(dms)
+            #print("dist to Monster: ", dm)
+        else:
+            dm = 999
         # generate list of Monster coordinates from sensed world
         for character in characters:
             temp = character[0]
@@ -292,37 +310,33 @@ class TestCharacter(CharacterEntity):
         
         me = characterPoses[0]
         #print("Me: ", me)
-
+        print("D_exit ", de)
+        print("D_monster ", dm)
+        if(dm == 1):
+            reward = -100
+            print("Reward type: Killed by Monster!")
+        if(de == 0):
+            reward = 10
+            print("Reward type: Found Exit!")
+        print("reward: ", reward)
         #print(nxt_events)
         print(sensed.events)
-        for e in sensed.events:#nxt_events:
-            #if(self.Q_monster(nxt, me[0], me[1]) == 1):
-            if(e.tpe == Event.CHARACTER_FOUND_EXIT):
-                reward = -1000
-                print("Reward type: Found Exit!")
-            #elif(self.Q_explosions(nxt, me[0], me[1]) == 1):
-            elif(e.tpe == Event.BOMB_HIT_CHARACTER):
-                reward = -1000
-                print("Reward type: Killed by Bomb!")
-            #elif(self.Q_exit(nxt, me[0], me[1]) == 1):
-            elif(e.tpe == Event.CHARACTER_KILLED_BY_MONSTER):
-                reward = 1000
-                print("Reward type: Killed by Monster!")
-            print("reward: ", reward)
-
-        #for e in nxt_events:
-        ##for e in character_ev:
-        #    print(e.tpe)
-        #    if e.tpe == Event.CHARACTER_FOUND_EXIT:
+        #for e in sensed.events:#nxt_events:
+        #    #if(self.Q_monster(nxt, me[0], me[1]) == 1):
+        #    if(e.tpe == Event.CHARACTER_FOUND_EXIT):
+        #        reward = -1000
+        #        print("Reward type: Found Exit!")
+        #    #elif(self.Q_explosions(nxt, me[0], me[1]) == 1):
+        #    elif(e.tpe == Event.BOMB_HIT_CHARACTER):
+        #        reward = -1000
+        #        print("Reward type: Killed by Bomb!")
+        #    #elif(self.Q_exit(nxt, me[0], me[1]) == 1):
+        #    elif(e.tpe == Event.CHARACTER_KILLED_BY_MONSTER):
         #        reward = 1000
-        #        break
-        #    elif e.tpe == Event.BOMB_HIT_CHARACTER:
-        #        reward = -1000
-        #        print("I blew up!")
-        #        break
-        #    elif e.tpe == Event.CHARACTER_KILLED_BY_MONSTER:
-        #        reward = -1000
-        #        break
+        #        print("Reward type: Killed by Monster!")
+        #    print("reward: ", reward)
+
+        
         return reward
 
     ### Components for Q values ###
@@ -422,7 +436,6 @@ class TestCharacter(CharacterEntity):
         #self.Qweights[3] = self.Qweights[3] + self.learningRate * delta * self.Q_bomb(wrld, x, y)
 
         if(self.FILETRAIN == True):
-            f = 'test.json'
-            with open(f, 'w') as file:
+            with open(self.filename, 'w') as file:
                 json.dump(self.Qweights, file)
 
