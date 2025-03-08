@@ -69,6 +69,13 @@ class TestCharacter(CharacterEntity):
                 self.Q_Update(wrld, NextMove[0], NextMove[1])
                 self.move(NextMove[0] - self.x, NextMove[1] - self.y)
                 pass
+            case 2:
+                PathToExit = self.A_star(wrld, self.x, self.y, self.exit_location(wrld)[0], self.exit_location(wrld)[1])
+                if PathToExit:
+                    NextMove = PathToExit[-1]  # Move to next step in A* path
+                    self.move(NextMove[0] - self.x, NextMove[1] - self.y)
+                else:
+                    print("WARNING: no path found with A*!")
             case _: # default, state unaccounted for
                 print("WARNING: state not accounted for, please add proper behavior")
                 pass
@@ -210,6 +217,37 @@ class TestCharacter(CharacterEntity):
         with open(self.filename, 'r') as file:
             self.Qweights = json.load(file)
 
+    def monster_along_path(self, wrld):
+        state = 0
+        ExitSquare = self.exit_location(wrld)
+        MonsterLocations = self.monster_locations(wrld)
+        if (MonsterLocations):
+            closest_monster = min(
+            MonsterLocations,
+            key=lambda m: len(self.A_star(wrld, self.x, self.y, m[0], m[1])) if self.A_star(wrld, self.x, self.y, m[0], m[1]) else float('inf')
+            )
+            ExitPath = self.A_star(wrld, self.x, self.y, ExitSquare[0], ExitSquare[1])
+            MonsterPath = self.A_star(wrld, self.x, self.y, closest_monster[0], closest_monster[1])
+            if not ExitPath or not MonsterPath:
+                state = 0
+            else:
+                # Create vectors from A* paths
+                V_exit = (ExitSquare[0] - self.x, ExitSquare[1] - self.y)
+                V_monster = (closest_monster[0] - self.x, closest_monster[1] - self.y)
+                # Compute magnitudes
+                mag_exit = len(ExitPath)
+                mag_monster = len(MonsterPath)
+                # Compute dot product
+                dot_product = V_exit[0] * V_monster[0] + V_exit[1] * V_monster[1]
+                # Compute cos(theta)
+                cos_theta = dot_product / (mag_exit * mag_monster) if mag_exit * mag_monster != 0 else -1  # Avoid division by zero
+                # Condition: If cos(theta) > 0, monster is along the way → Use Q-learning
+                if cos_theta > 0:
+                    state = 0  # Q-learning
+                else:
+                    state = 2  # A* escape
+        return state
+
     ### State Machine ###
 
     # Function for State change conditions
@@ -217,6 +255,8 @@ class TestCharacter(CharacterEntity):
         state = 0 # default state (currently: A-Star)
         if(self.open_hole(wrld, self.x, self.y)):
             state = 1 # drop a bomb state
+        elif(self.monster_along_path(wrld) == 2):
+            state = 2
         return state
     
     # Function to detect when to drop a bomb

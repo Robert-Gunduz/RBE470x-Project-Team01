@@ -25,4 +25,4 @@ g.add_character(TestCharacter("me", # name
 #for i in range(0, 200):
 #    g.go(1)
 g.world.characters[g.world.index(0, 0)][0].pick_file("V1.json")
-g.go()
+g.go(1)

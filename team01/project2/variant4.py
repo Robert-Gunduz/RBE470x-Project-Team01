@@ -17,7 +17,7 @@ from testcharacter_prj2 import TestCharacter
 # Create the game
 wins = 0
 loss = 0
-for i in range(0,1):
+for i in range(0,10):
     #random.seed(123) # TODO Change this if you want different random choices
     random.seed()
     g = Game.fromfile('map.txt')
