@@ -22,10 +22,6 @@ class TestCharacter(CharacterEntity):
     # Weights for Q-Learning and other values (exit, monster, explosion)
     Qweights = [4, -1]
     if(FILETRAIN == True):
-        #f = 'test.json'
-        #with open(f, 'w') as file:
-        #    json.dump(Qweights, file)
-
         with open(filename, 'r') as file:
             Qweights = json.load(file)
     learningRate = 0.1
@@ -212,11 +208,13 @@ class TestCharacter(CharacterEntity):
             current = came_from[current]
         return path
     
+    # Fucntion to pick a file
     def pick_file(self, name):
         self.filename = name
         with open(self.filename, 'r') as file:
             self.Qweights = json.load(file)
 
+    # Function to determine if monster is along the path to the exit
     def monster_along_path(self, wrld):
         state = 0
         ExitSquare = self.exit_location(wrld)
@@ -224,24 +222,24 @@ class TestCharacter(CharacterEntity):
         if (MonsterLocations):
             closest_monster = min(
             MonsterLocations,
-            key=lambda m: len(self.A_star(wrld, self.x, self.y, m[0], m[1])) if self.A_star(wrld, self.x, self.y, m[0], m[1]) else float('inf')
+            key=lambda m: len(s3f.A_star(wrld, self.x, self.y, m[0], m[1])) if self.A_star(wrld, self.x, self.y, m[0], m[1]) else float('inf')
             )
             ExitPath = self.A_star(wrld, self.x, self.y, ExitSquare[0], ExitSquare[1])
             MonsterPath = self.A_star(wrld, self.x, self.y, closest_monster[0], closest_monster[1])
             if not ExitPath or not MonsterPath:
                 state = 0
             else:
-                # Create vectors from A* paths
+                # create vectors from A* paths
                 V_exit = (ExitSquare[0] - self.x, ExitSquare[1] - self.y)
                 V_monster = (closest_monster[0] - self.x, closest_monster[1] - self.y)
-                # Compute magnitudes
+                # compute magnitudes
                 mag_exit = len(ExitPath)
                 mag_monster = len(MonsterPath)
-                # Compute dot product
+                # compute dot product
                 dot_product = V_exit[0] * V_monster[0] + V_exit[1] * V_monster[1]
-                # Compute cos(theta)
+                # compute cos(theta)
                 cos_theta = dot_product / (mag_exit * mag_monster) if mag_exit * mag_monster != 0 else -1  # Avoid division by zero
-                # Condition: If cos(theta) > 0, monster is along the way → Use Q-learning
+                # condition
                 if cos_theta > 0:
                     state = 0  # Q-learning
                 else:
@@ -256,7 +254,7 @@ class TestCharacter(CharacterEntity):
         if(self.open_hole(wrld, self.x, self.y)):
             state = 1 # drop a bomb state
         elif(self.monster_along_path(wrld) == 2):
-            state = 2
+            state = 2  # A* state
         return state
     
     # Function to detect when to drop a bomb
@@ -322,11 +320,8 @@ class TestCharacter(CharacterEntity):
     
     ### Components for Reward function ###
     def Rewards(self, wrld, x, y):
-        #print("here ----")
         reward = 0.01
         sensed = SensedWorld.from_world(wrld)
-        #character_ev = []
-        #character_ev = sensed.update_characters()
         (nxt, nxt_events) = sensed.next()
         s_world = SensedWorld.from_world(wrld)
         characters = list(sensed.characters.values())
@@ -340,7 +335,6 @@ class TestCharacter(CharacterEntity):
             dms.append(self.euclidian(x, y, monster[0], monster[1]))
         if not len(dms) == 0:
             dm = min(dms)
-            #print("dist to Monster: ", dm)
         else:
             dm = 999
         # generate list of Monster coordinates from sensed world
@@ -349,7 +343,6 @@ class TestCharacter(CharacterEntity):
             characterPoses.append((temp.x, temp.y))
         
         me = characterPoses[0]
-        #print("Me: ", me)
         print("D_exit ", de)
         print("D_monster ", dm)
         if(dm == 1):
@@ -359,24 +352,7 @@ class TestCharacter(CharacterEntity):
             reward = 10
             print("Reward type: Found Exit!")
         print("reward: ", reward)
-        #print(nxt_events)
         print(sensed.events)
-        #for e in sensed.events:#nxt_events:
-        #    #if(self.Q_monster(nxt, me[0], me[1]) == 1):
-        #    if(e.tpe == Event.CHARACTER_FOUND_EXIT):
-        #        reward = -1000
-        #        print("Reward type: Found Exit!")
-        #    #elif(self.Q_explosions(nxt, me[0], me[1]) == 1):
-        #    elif(e.tpe == Event.BOMB_HIT_CHARACTER):
-        #        reward = -1000
-        #        print("Reward type: Killed by Bomb!")
-        #    #elif(self.Q_exit(nxt, me[0], me[1]) == 1):
-        #    elif(e.tpe == Event.CHARACTER_KILLED_BY_MONSTER):
-        #        reward = 1000
-        #        print("Reward type: Killed by Monster!")
-        #    print("reward: ", reward)
-
-        
         return reward
 
     ### Components for Q values ###
@@ -439,8 +415,6 @@ class TestCharacter(CharacterEntity):
     def Q_value(self, wrld, x, y):
         We = self.Qweights[0]
         Wm = self.Qweights[1]
-        #Wx = self.Qweights[2]
-        #Wb = self.Qweights[3]
         value = (We * self.Q_exit(wrld, x, y)) + (Wm * self.Q_monster(wrld, x, y)) #+ (Wx * self.Q_explosions(wrld, x, y)) + (Wb * self.Q_bomb(wrld, x, y))
         # print("Q_value: ", (x, y, value))
         return value
@@ -472,9 +446,7 @@ class TestCharacter(CharacterEntity):
         
         self.Qweights[0] = self.Qweights[0] + self.learningRate * delta * self.Q_exit(wrld, x, y)
         self.Qweights[1] = self.Qweights[1] + self.learningRate * delta * self.Q_monster(wrld, x, y)
-        #self.Qweights[2] = self.Qweights[2] + self.learningRate * delta * self.Q_explosions(wrld, x, y)
-        #self.Qweights[3] = self.Qweights[3] + self.learningRate * delta * self.Q_bomb(wrld, x, y)
-
+        
         if(self.FILETRAIN == True):
             with open(self.filename, 'w') as file:
                 json.dump(self.Qweights, file)
